@@ -45,7 +45,7 @@ if (-not $SkipTests) {
     try {
         & $Python -m ruff check desktop
         if ($LASTEXITCODE -ne 0) { throw "Ruff encontró errores." }
-        & $Python -m pyright
+        & $Python -m pyright --pythonpath $Python
         if ($LASTEXITCODE -ne 0) { throw "Pyright encontró errores." }
         & $Python -m pytest desktop/app/tests desktop/app/validation -q
         if ($LASTEXITCODE -ne 0) { throw "Las pruebas no aprobaron." }
