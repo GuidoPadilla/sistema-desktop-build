@@ -4,7 +4,7 @@ param(
     [string]$Version,
 
     [string]$SourceDir = (Join-Path $PSScriptRoot "..\sistema-desktop"),
-    [string]$Channel = "win",
+    [string]$Channel = "win-x64",
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^https://github\.com/[^/]+/[^/]+/?$')]
     [string]$ReleaseRepoUrl,
@@ -109,12 +109,16 @@ try {
     if ($GitHubToken) { $Headers.Authorization = "Bearer $GitHubToken" }
     $ExistingReleases = @(
         Invoke-RestMethod `
-            -Uri "https://api.github.com/repos/$RepoPath/releases?per_page=1" `
+            -Uri "https://api.github.com/repos/$RepoPath/releases?per_page=20" `
             -Headers $Headers
     )
+    $ChannelFeed = "releases.$Channel.json"
+    $HasChannelRelease = $ExistingReleases | Where-Object {
+        $_.assets.name -contains $ChannelFeed
+    }
 
     # Recuperar el feed anterior permite conservar el historial y generar deltas.
-    if ($ExistingReleases.Count -gt 0) {
+    if ($HasChannelRelease) {
         & vpk download github `
             --repoUrl $ReleaseRepoUrl `
             --channel $Channel `
@@ -123,12 +127,12 @@ try {
     }
 
     & vpk pack `
-        --packId "Hoosier.SistemaDesktop" `
+        --packId "ImportacionesExportaciones.Desktop" `
         --packVersion $Version `
         --packDir $PackDir `
         --mainExe "sistema-desktop.exe" `
         --packTitle "Sistema de Importaciones y Exportaciones" `
-        --packAuthors "HOOSIER, S.A." `
+        --packAuthors "Sistema de Importaciones y Exportaciones" `
         --runtime "win-x64" `
         --channel $Channel `
         --outputDir $Artifacts
