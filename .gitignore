@@ -1,0 +1,14 @@
+.venv-build/
+publish/
+Releases/
+artifacts/
+local-artifacts/
+*.spec
+build/
+.env
+*.pfx
+*.p12
+*.pem
+*.key
+.DS_Store
+Thumbs.db
