@@ -78,6 +78,7 @@ UPDATE_REPOSITORY_URL = "$($ReleaseRepoUrl.TrimEnd('/'))"
             --distpath $PublishRoot `
             --workpath (Join-Path $PyInstallerBuild "pyinstaller") `
             --specpath $PyInstallerBuild `
+            --collect-all keyring `
             --collect-all velopack `
             desktop\app\main.py
         if ($LASTEXITCODE -ne 0) { throw "PyInstaller no pudo generar la aplicación." }
