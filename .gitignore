@@ -1,10 +1,14 @@
 .venv-build/
+.venv-build-linux/
 publish/
+publish-linux/
 Releases/
 artifacts/
+artifacts-linux/
 local-artifacts/
 *.spec
 build/
+build-linux/
 .env
 *.pfx
 *.p12

@@ -10,6 +10,7 @@ param(
     [string]$ReleaseRepoUrl,
     [string]$GitHubToken = $env:RELEASE_REPO_TOKEN,
     [switch]$Publish,
+    [switch]$Merge,
     [switch]$SkipTests
 )
 
@@ -141,13 +142,17 @@ try {
 
     if ($Publish) {
         if (-not $GitHubToken) { throw "GitHubToken es obligatorio al publicar." }
-        & vpk upload github `
-            --outputDir $Artifacts `
-            --channel $Channel `
-            --repoUrl $ReleaseRepoUrl `
-            --publish true `
-            --releaseName "Sistema Desktop $Version" `
-            --tag "v$Version"
+        $UploadArgs = @(
+            "upload", "github",
+            "--outputDir", $Artifacts,
+            "--channel", $Channel,
+            "--repoUrl", $ReleaseRepoUrl,
+            "--publish", "true",
+            "--releaseName", "Sistema Desktop $Version",
+            "--tag", "v$Version"
+        )
+        if ($Merge) { $UploadArgs += @("--merge", "true") }
+        & vpk @UploadArgs
         if ($LASTEXITCODE -ne 0) { throw "No se pudo publicar el release en GitHub." }
     }
 }

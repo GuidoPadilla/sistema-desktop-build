@@ -2,7 +2,7 @@
 
 Repositorio de empaquetado. El código fuente vive en `../sistema-desktop`; React y Frappe no se copian aquí.
 
-## Release Windows con VeloPack
+## Releases Windows y Linux con VeloPack
 
 Requisitos del equipo de build:
 
@@ -32,3 +32,24 @@ Remove-Item Env:GITHUB_TOKEN
 El token nunca debe guardarse en archivos ni en Git.
 
 El workflow del repositorio fuente incorpora esta URL en el ejecutable y publica automáticamente cada push de `main`.
+
+Cada push genera en un mismo GitHub Release dos canales independientes:
+
+- `win-x64`: instalador de Windows, paquete completo/delta y feed.
+- `linux-x64`: AppImage, paquete completo/delta y feed.
+
+Build Linux manual (requiere Python 3.12 y .NET 8):
+
+```bash
+./build_release_linux.sh \
+  0.1.0 \
+  ../sistema-desktop \
+  https://github.com/OWNER/sistema-desktop-build
+```
+
+Para ejecutar el AppImage:
+
+```bash
+chmod +x Sistema-de-Importaciones-y-Exportaciones-linux-x64.AppImage
+./Sistema-de-Importaciones-y-Exportaciones-linux-x64.AppImage
+```
