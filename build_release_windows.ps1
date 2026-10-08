@@ -87,9 +87,6 @@ UPDATE_REPOSITORY_URL = "$($ReleaseRepoUrl.TrimEnd('/'))"
             --specpath $PyInstallerBuild `
             --collect-all keyring `
             --collect-all velopack `
-            --hidden-import pythoncom `
-            --hidden-import pywintypes `
-            --hidden-import win32com.client `
             desktop\app\main.py
         if ($LASTEXITCODE -ne 0) { throw "PyInstaller no pudo generar la aplicación." }
     }
@@ -128,8 +125,8 @@ try {
         $_.assets.name -contains $ChannelFeed
     }
 
-    # Exercise the bundled imports, actual COM marshaling, Qt proxy lookup,
-    # HTTPX session and updater bridge, then TLS + GitHub's CDN redirect.
+    # Exercise bundled HTTPX, session semantics and TLS + GitHub's CDN redirect.
+    # This checks HTTPX connectivity; VeloPack uses its own native downloader.
     # This gate also runs with -SkipTests: an untested frozen app is not published.
     $SmokeReport = Join-Path $PyInstallerBuild "network-self-test.json"
     Remove-Item $SmokeReport -ErrorAction SilentlyContinue

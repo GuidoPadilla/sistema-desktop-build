@@ -55,11 +55,14 @@ chmod +x Sistema-de-Importaciones-y-Exportaciones-linux-x64.AppImage
 ```
 
 El build Windows incluye una comprobación obligatoria del ejecutable empaquetado:
-transporte WinHTTP, sesión/cookies/JSON/CSRF contra un servidor local de prueba,
-transferencia binaria por el puente y lectura HTTPS del feed publicado. Si falla,
+cliente HTTPX, sesión/cookies/JSON/CSRF contra un servidor local de prueba,
+descarga binaria y lectura HTTPS del feed publicado. Si falla,
 no se empaqueta ni publica; el detalle queda en `build/network-self-test.json`
 y en el log del build. También se ejecuta con `-SkipTests`. Para el primer release
 de un canal se admite que aún no exista su feed.
+
+Esta comprobación verifica HTTPX dentro del ejecutable; no simula la instalación
+ni la actualización completa de VeloPack, que usa su propio transporte nativo.
 
 Los cambios de este repositorio deben estar publicados antes de disparar el
 workflow del repositorio fuente, que descarga estas herramientas al construir.
