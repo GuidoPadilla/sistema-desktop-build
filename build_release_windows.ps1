@@ -24,7 +24,8 @@ $PublishRoot = Join-Path $BuildRoot "publish"
 $PackDir = Join-Path $PublishRoot "sistema-desktop"
 $Artifacts = Join-Path $BuildRoot "artifacts"
 $ReleaseConfig = Join-Path $SourceDir "desktop\app\release_config.py"
-$OriginalReleaseConfig = Get-Content -Raw $ReleaseConfig
+$OriginalReleaseConfig = [System.IO.File]::ReadAllBytes($ReleaseConfig)
+$PreviousVpkToken = $env:VPK_TOKEN
 
 if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
     throw "No se encontró Python Launcher. Instale Python 3.12 x64 con el comando py."
@@ -36,10 +37,15 @@ if (-not (Test-Path $Python)) {
     }
 }
 
+& $Python -c "import struct, sys; assert sys.version_info[:2] == (3, 12) and struct.calcsize('P') == 8, 'Se requiere Python 3.12 x64'"
+if ($LASTEXITCODE -ne 0) { throw "El entorno de build no es Python 3.12 x64." }
+
 & $Python -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw "No se pudo actualizar pip." }
 & $Python -m pip install -e "${SourceDir}[dev]"
 if ($LASTEXITCODE -ne 0) { throw "No se pudieron instalar las dependencias." }
+& $Python -m pip check
+if ($LASTEXITCODE -ne 0) { throw "Hay dependencias incompatibles." }
 
 if (-not $SkipTests) {
     Push-Location $SourceDir
@@ -81,6 +87,9 @@ UPDATE_REPOSITORY_URL = "$($ReleaseRepoUrl.TrimEnd('/'))"
             --specpath $PyInstallerBuild `
             --collect-all keyring `
             --collect-all velopack `
+            --hidden-import pythoncom `
+            --hidden-import pywintypes `
+            --hidden-import win32com.client `
             desktop\app\main.py
         if ($LASTEXITCODE -ne 0) { throw "PyInstaller no pudo generar la aplicación." }
     }
@@ -89,7 +98,7 @@ UPDATE_REPOSITORY_URL = "$($ReleaseRepoUrl.TrimEnd('/'))"
     }
 }
 finally {
-    Set-Content -Path $ReleaseConfig -Encoding utf8 -Value $OriginalReleaseConfig
+    [System.IO.File]::WriteAllBytes($ReleaseConfig, $OriginalReleaseConfig)
 }
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
@@ -118,6 +127,29 @@ try {
     $HasChannelRelease = $ExistingReleases | Where-Object {
         $_.assets.name -contains $ChannelFeed
     }
+
+    # Exercise the bundled imports, actual COM marshaling, Qt proxy lookup,
+    # HTTPX session and updater bridge, then TLS + GitHub's CDN redirect.
+    # This gate also runs with -SkipTests: an untested frozen app is not published.
+    $SmokeReport = Join-Path $PyInstallerBuild "network-self-test.json"
+    Remove-Item $SmokeReport -ErrorAction SilentlyContinue
+    $FeedUrl = "$($ReleaseRepoUrl.TrimEnd('/'))/releases/latest/download/$ChannelFeed"
+    $SmokeArgs = @("--network-self-test", "`"$SmokeReport`"", "--feed-url", "`"$FeedUrl`"")
+    if (-not $HasChannelRelease) { $SmokeArgs += "--allow-missing-feed" }
+    $Smoke = Start-Process -FilePath (Join-Path $PackDir "sistema-desktop.exe") `
+        -ArgumentList $SmokeArgs -PassThru
+    if (-not $Smoke.WaitForExit(180000)) {
+        Stop-Process -Id $Smoke.Id -Force -ErrorAction SilentlyContinue
+        throw "La comprobación de red del ejecutable excedió 180 segundos."
+    }
+    $Smoke.Refresh()
+    if ($Smoke.ExitCode -ne 0 -or -not (Test-Path $SmokeReport)) {
+        if (Test-Path $SmokeReport) { Get-Content -Raw $SmokeReport | Write-Host }
+        throw "Falló la comprobación de red del ejecutable Windows. No se publicará."
+    }
+    $SmokeResult = Get-Content -Raw $SmokeReport | ConvertFrom-Json
+    if (-not $SmokeResult.ok) { throw "La comprobación de red no aprobó: $SmokeReport" }
+    Write-Host "Transporte del ejecutable Windows verificado: $($SmokeResult.checks -join ', ')"
 
     # Recuperar el feed anterior permite conservar el historial y generar deltas.
     if ($HasChannelRelease) {
@@ -157,7 +189,11 @@ try {
     }
 }
 finally {
-    Remove-Item Env:VPK_TOKEN -ErrorAction SilentlyContinue
+    if ($null -eq $PreviousVpkToken) {
+        Remove-Item Env:VPK_TOKEN -ErrorAction SilentlyContinue
+    } else {
+        $env:VPK_TOKEN = $PreviousVpkToken
+    }
 }
 
 Write-Host "Release VeloPack generado en: $Artifacts"
